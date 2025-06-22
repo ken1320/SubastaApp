@@ -2,9 +2,9 @@ package com.example.subastaapp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.subastaapp.model.OcuparPuestoRequest
 import com.example.subastaapp.model.RetrofitClient
 import com.example.subastaapp.model.Subasta
-import com.example.subastaapp.model.PujaRequest
 import com.example.subastaapp.model.SubastaCreationRequest
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -25,8 +25,10 @@ class SubastaViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading
 
+    // Mantén _error como private MutableStateFlow para encapsulación
     private val _error = MutableStateFlow<String?>(null)
-    val error: StateFlow<String?> = _error
+    // Expón solo StateFlow para que la UI pueda leerlo
+    val error: StateFlow<String?> = _error.asStateFlow() // Usa .asStateFlow() para asegurarte de que sea inmutable desde fuera
 
     init {
         fetchSubastas()
@@ -39,33 +41,39 @@ class SubastaViewModel : ViewModel() {
     fun fetchSubastas() {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+            _error.value = null // Limpia el error al iniciar una nueva carga
             try {
-                println("DEBUG: ViewModel attempting to fetch auctions.") // DEBUG
+                println("DEBUG: ViewModel attempting to fetch auctions.")
                 val fetchedSubastas = RetrofitClient.api.getSubastas()
                 _subastas.value = fetchedSubastas
-                println("DEBUG: Auctions successfully loaded: ${fetchedSubastas.size} items.") // DEBUG
+                println("DEBUG: Auctions successfully loaded: ${fetchedSubastas.size} items.")
 
-                // ¡NUEVO TEMPORAL PARA DEBUG! Imprimir cada subasta cargada para verificar imagenUrl
                 fetchedSubastas.forEach { subasta ->
-                    println("DEBUG (FETCHED): Subasta cargada: ID=${subasta.id}, Titulo='${subasta.titulo}', ImagenURL='${subasta.imagenUrl}'")
+                    println("DEBUG (FETCHED): Subasta cargada: ID=${subasta.id}, Titulo='${subasta.titulo}', ImagenURL='${subasta.imagenUrl}', Puestos: ${subasta.puestos.size}")
                 }
-                // FIN NUEVO TEMPORAL PARA DEBUG
+
+                _subastaSeleccionada.value?.let { currentSelected ->
+                    val updatedSelected = fetchedSubastas.find { it.id == currentSelected.id }
+                    if (updatedSelected != null) {
+                        _subastaSeleccionada.value = updatedSelected
+                        println("DEBUG: Updated selected auction with fresh data.")
+                    }
+                }
 
             } catch (e: IOException) {
                 _error.value = "Network error: ${e.message}"
-                println("ERROR: Network error fetching auctions: ${e.message}") // DEBUG
+                println("ERROR: Network error fetching auctions: ${e.message}")
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
                 _error.value = "HTTP Error ${e.code()}: ${errorBody ?: e.message()}"
-                println("ERROR: HTTP error fetching auctions: ${e.code()} - ${errorBody}") // DEBUG
+                println("ERROR: HTTP error fetching auctions: ${e.code()} - ${errorBody}")
             } catch (e: Exception) {
                 _error.value = "Unexpected error fetching auctions: ${e.message}"
-                println("ERROR: Unexpected error fetching auctions: ${e.message}") // DEBUG
+                println("ERROR: Unexpected error fetching auctions: ${e.message}")
                 e.printStackTrace()
             } finally {
                 _isLoading.value = false
-                println("DEBUG: Auction fetching finished. Loading: false.") // DEBUG
+                println("DEBUG: Auction fetching finished. Loading: false.")
             }
         }
     }
@@ -75,82 +83,78 @@ class SubastaViewModel : ViewModel() {
             _isLoading.value = true
             _error.value = null
             try {
-                // *** DEBUGGING: ViewModel attempting to create auction ***
                 println("DEBUG: ViewModel attempting to create auction with data: $subastaData")
                 val response = RetrofitClient.api.crearSubasta(subastaData)
                 if (response.isSuccessful) {
-                    // *** DEBUGGING: Auction created successfully ***
                     println("DEBUG: Auction created successfully. Code: ${response.code()}, Body: ${response.body()}")
 
-                    // ¡NUEVO TEMPORAL PARA DEBUG! Imprimir la subasta creada desde la respuesta del backend
                     val createdSubasta = response.body()
                     if (createdSubasta != null) {
                         println("DEBUG (CREATED): Subasta creada (desde la respuesta del backend): ID=${createdSubasta.id}, Titulo='${createdSubasta.titulo}', ImagenURL='${createdSubasta.imagenUrl}'")
                     } else {
                         println("DEBUG (CREATED): Respuesta de creación de subasta exitosa, pero cuerpo nulo.")
                     }
-                    // FIN NUEVO TEMPORAL PARA DEBUG
 
                     onSuccess()
                     fetchSubastas() // Reload the list after creation
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    // *** DEBUGGING: Failed to create auction (unsuccessful response) ***
                     println("ERROR: Failed to create auction: ${response.code()} - ${errorBody}")
                     _error.value = "Error creating auction: ${response.code()} - ${errorBody}"
                 }
             } catch (e: IOException) {
-                // *** DEBUGGING: Network exception ***
                 println("ERROR: Network exception when creating auction: ${e.message}")
                 _error.value = "Network error: ${e.message}"
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                // *** DEBUGGING: HTTP exception ***
                 println("ERROR: HTTP exception when creating auction: ${e.code()} - ${errorBody ?: e.message()}")
                 _error.value = "HTTP Error ${e.code()}: ${errorBody ?: e.message()}"
             } catch (e: Exception) {
-                // *** DEBUGGING: Unexpected exception ***
                 println("ERROR: Unexpected exception when creating auction: ${e.message}")
                 e.printStackTrace()
                 _error.value = "Unexpected error: ${e.message}"
             } finally {
                 _isLoading.value = false
-                // *** DEBUGGING: createSubasta process finished ***
                 println("DEBUG: createSubasta process finished. Loading: false.")
             }
         }
     }
 
-    fun pujar(subastaId: String, montoPuja: Double, pujadorId: String) {
+    fun ocuparPuesto(subastaId: String, puestoNumero: Int, montoPuja: Double, pujadorId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+            _error.value = null // Limpia el error al iniciar la operación
             try {
-                val pujaRequest = PujaRequest(monto = montoPuja, pujador = pujadorId) // Corrected: pujador
-                println("DEBUG: ViewModel attempting to bid on auction $subastaId with: $pujaRequest") // DEBUG
-                val response = RetrofitClient.api.pujar(subastaId, pujaRequest)
+                val ocuparPuestoRequest = OcuparPuestoRequest(
+                    puestoNumero = puestoNumero,
+                    montoPuja = montoPuja,
+                    pujadorId = pujadorId
+                )
+                println("DEBUG: ViewModel attempting to occupy puesto $puestoNumero on auction $subastaId with: $ocuparPuestoRequest")
+                val response = RetrofitClient.api.ocuparPuesto(subastaId, ocuparPuestoRequest)
                 if (response.isSuccessful) {
-                    println("DEBUG: Bid placed successfully on auction $subastaId.") // DEBUG
+                    println("DEBUG: Puesto $puestoNumero occupied successfully on auction $subastaId.")
+                    onSuccess()
                     fetchSubastas()
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    println("ERROR: Failed to bid on auction $subastaId: ${response.code()} - ${errorBody}") // DEBUG
-                    _error.value = "Error bidding: ${response.code()} - ${errorBody}"
+                    println("ERROR: Failed to occupy puesto $puestoNumero on auction $subastaId: ${response.code()} - ${errorBody}")
+                    _error.value = "Error ocupando puesto: ${response.code()} - ${errorBody}"
                 }
             } catch (e: IOException) {
-                println("ERROR: Network error when bidding: ${e.message}") // DEBUG
+                println("ERROR: Network error when occupying puesto: ${e.message}")
                 _error.value = "Network error: ${e.message}"
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                println("ERROR: HTTP error when bidding: ${e.code()}: ${errorBody ?: e.message()}") // DEBUG
+                println("ERROR: HTTP error when occupying puesto: ${e.code()}: ${errorBody ?: e.message()}")
                 _error.value = "HTTP Error ${e.code()}: ${errorBody ?: e.message()}"
             } catch (e: Exception) {
-                println("ERROR: Unexpected error when bidding: ${e.message}") // DEBUG
+                println("ERROR: Unexpected error when occupying puesto: ${e.message}")
                 e.printStackTrace()
                 _error.value = "Unexpected error: ${e.message}"
             } finally {
                 _isLoading.value = false
-                println("DEBUG: Bidding process finished.") // DEBUG
+                println("DEBUG: Occupying puesto process finished.")
             }
         }
     }
@@ -158,32 +162,32 @@ class SubastaViewModel : ViewModel() {
     fun finalizar(subastaId: String) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+            _error.value = null // Limpia el error al iniciar la operación
             try {
-                println("DEBUG: ViewModel attempting to finalize auction: $subastaId") // DEBUG
+                println("DEBUG: ViewModel attempting to finalize auction: $subastaId")
                 val response = RetrofitClient.api.finalizar(subastaId)
                 if (response.isSuccessful) {
-                    println("DEBUG: Auction $subastaId finalized successfully.") // DEBUG
-                    fetchSubastas() // Reload the list
+                    println("DEBUG: Auction $subastaId finalized successfully.")
+                    fetchSubastas()
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    println("ERROR: Failed to finalize auction $subastaId: ${response.code()} - ${errorBody}") // DEBUG
+                    println("ERROR: Failed to finalize auction $subastaId: ${response.code()} - ${errorBody}")
                     _error.value = "Error finalizing auction: ${response.code()} - ${errorBody}"
                 }
             } catch (e: IOException) {
-                println("ERROR: Network error finalizing auction: ${e.message}") // DEBUG
+                println("ERROR: Network error finalizing auction: ${e.message}")
                 _error.value = "Network error: ${e.message}"
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                println("ERROR: HTTP error finalizing auction: ${e.code()}: ${errorBody ?: e.message()}") // DEBUG
+                println("ERROR: HTTP error finalizing auction: ${e.code()}: ${errorBody ?: e.message()}")
                 _error.value = "HTTP Error ${e.code()}: ${errorBody ?: e.message()}"
             } catch (e: Exception) {
-                println("ERROR: Unexpected error finalizing auction: ${e.message}") // DEBUG
+                println("ERROR: Unexpected error finalizing auction: ${e.message}")
                 e.printStackTrace()
                 _error.value = "Unexpected error: ${e.message}"
             } finally {
                 _isLoading.value = false
-                println("DEBUG: Finalizing auction process finished.") // DEBUG
+                println("DEBUG: Finalizing auction process finished.")
             }
         }
     }
@@ -191,34 +195,39 @@ class SubastaViewModel : ViewModel() {
     fun eliminar(subastaId: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             _isLoading.value = true
-            _error.value = null
+            _error.value = null // Limpia el error al iniciar la operación
             try {
-                println("DEBUG: ViewModel attempting to delete auction: $subastaId") // DEBUG
+                println("DEBUG: ViewModel attempting to delete auction: $subastaId")
                 val response = RetrofitClient.api.eliminar(subastaId)
                 if (response.isSuccessful) {
-                    println("DEBUG: Auction $subastaId deleted successfully.") // DEBUG
-                    onSuccess() // Execute success action (e.g., go back to the list)
-                    fetchSubastas() // Reload the list
+                    println("DEBUG: Auction $subastaId deleted successfully.")
+                    onSuccess()
+                    fetchSubastas()
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    println("ERROR: Failed to delete auction $subastaId: ${response.code()} - ${errorBody}") // DEBUG
+                    println("ERROR: Failed to delete auction $subastaId: ${response.code()} - ${errorBody}")
                     _error.value = "Error deleting auction: ${response.code()} - ${errorBody}"
                 }
             } catch (e: IOException) {
-                println("ERROR: Network error deleting auction: ${e.message}") // DEBUG
+                println("ERROR: Network error deleting auction: ${e.message}")
                 _error.value = "Network error: ${e.message}"
             } catch (e: HttpException) {
                 val errorBody = e.response()?.errorBody()?.string()
-                println("ERROR: HTTP error deleting auction: ${e.code()}: ${errorBody ?: e.message()}") // DEBUG
+                println("ERROR: HTTP error deleting auction: ${e.code()}: ${errorBody ?: e.message()}")
                 _error.value = "HTTP Error ${e.code()}: ${errorBody ?: e.message()}"
             } catch (e: Exception) {
-                println("ERROR: Unexpected error deleting auction: ${e.message}") // DEBUG
+                println("ERROR: Unexpected error deleting auction: ${e.message}")
                 e.printStackTrace()
                 _error.value = "Unexpected error: ${e.message}"
             } finally {
                 _isLoading.value = false
-                println("DEBUG: Deleting auction process finished.") // DEBUG
+                println("DEBUG: Deleting auction process finished.")
             }
         }
+    }
+
+    // ¡NUEVA FUNCIÓN! Para que la UI pueda limpiar el estado de error
+    fun clearError() {
+        _error.value = null
     }
 }

@@ -1,138 +1,416 @@
-package com.example.subastaapp.view
-
+package com.example.subastaapp.ui
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.*
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import coil.compose.rememberAsyncImagePainter // Importante para cargar imágenes desde URL
-import com.example.subastaapp.model.Puja
-import com.example.subastaapp.model.Subasta
+import androidx.compose.ui.unit.sp
+import androidx.navigation.NavController
+import coil.compose.rememberAsyncImagePainter
+import com.example.subastaapp.viewmodel.SubastaViewModel
 import java.text.SimpleDateFormat
-import java.util.Date
 import java.util.Locale
+import androidx.compose.ui.draw.clip
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleSubastaScreen(
-    subasta: Subasta,
-    onRealizarPuja: (subastaId: String, montoPuja: Double, pujadorId: String) -> Unit,
-    onFinalizarSubasta: (subastaId: String) -> Unit,
-    onEliminarSubasta: (subastaId: String) -> Unit
+    navController: NavController,
+    viewModel: SubastaViewModel
 ) {
-    var pujadorIdInput by remember { mutableStateOf("") }
-    var valorOfertaInput by remember { mutableStateOf("") }
+    val subasta by viewModel.subastaSeleccionada.collectAsState()
+    val isLoading by viewModel.isLoading.collectAsState()
+    val error by viewModel.error.collectAsState()
 
-    val historialPujas: List<Puja> = remember(subasta.id, subasta.pujas, subasta.ultimaPuja) {
-        subasta.pujas.orEmpty().sortedByDescending { it.fechaPuja }
-    }
+    var pujadorId by remember { mutableStateOf("") }
+    var montoOferta by remember { mutableStateOf("") }
+    var selectedPuesto by remember { mutableStateOf<Int?>(null) }
 
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
 
-    Column(modifier = Modifier.padding(16.dp)) {
-        Text("Detalles de Subasta: ${subasta.titulo}", style = MaterialTheme.typography.titleLarge)
+    var uiValidationMessage by remember { mutableStateOf<String?>(null) }
 
-        // ¡Esta parte ya estaba bien implementada! Usa subasta.imagenUrl
-        Image(
-            painter = rememberAsyncImagePainter(subasta.imagenUrl ?: "https://via.placeholder.com/150"), // Placeholder si no hay imagen
-            contentDescription = null,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .padding(vertical = 8.dp)
-        )
-
-        Text("Fecha de inicio: ${dateFormatter.format(subasta.fechaInicio)}")
-        Text("Fecha de fin: ${dateFormatter.format(subasta.fechaFin)}")
-        Text("Precio inicial: \$${String.format(Locale.getDefault(), "%.2f", subasta.precioInicial)}")
-        Text("Precio actual: \$${String.format(Locale.getDefault(), "%.2f", subasta.precioActual)}")
-
-        if (subasta.estado == "finalizada" && subasta.ganador != null) {
-            val pujaGanadora = historialPujas.firstOrNull { it.pujador == subasta.ganador }
-            if (pujaGanadora != null) {
-                Text("👑 Ganador: ${pujaGanadora.pujador} (\$${String.format(Locale.getDefault(), "%.2f", pujaGanadora.monto)})", color = MaterialTheme.colorScheme.primary)
-            } else {
-                Text("👑 Ganador ID: ${subasta.ganador}", color = MaterialTheme.colorScheme.primary)
-            }
-        } else if (subasta.precioActual > subasta.precioInicial && subasta.estado == "activa") {
-            Text("🔺 Oferta más alta actual: \$${String.format(Locale.getDefault(), "%.2f", subasta.precioActual)}")
-        } else if (subasta.estado == "activa") {
-            Text("No hay ofertas aún.")
-        } else if (subasta.estado == "finalizada" && subasta.ganador == null) {
-            Text("Subasta finalizada sin ganador (no hubo pujas).")
+    // Mostrar un CircularProgressIndicator si está cargando
+    if (isLoading) {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            CircularProgressIndicator()
         }
+    }
 
-        Spacer(modifier = Modifier.height(12.dp))
+    // Mostrar error general del ViewModel
+    error?.let { errorMessage ->
+        val snackbarHostState = remember { SnackbarHostState() }
+        LaunchedEffect(errorMessage) {
+            snackbarHostState.showSnackbar(errorMessage)
+            viewModel.clearError()
+        }
+        SnackbarHost(hostState = snackbarHostState)
+    }
 
-        if (subasta.estado == "activa") {
-            OutlinedTextField(
-                value = pujadorIdInput,
-                onValueChange = { pujadorIdInput = it },
-                label = { Text("Tu ID de pujador") },
-                modifier = Modifier.fillMaxWidth()
-            )
+    // Mostrar mensaje de validación de UI
+    uiValidationMessage?.let { localMessage ->
+        val snackbarHostState = remember { SnackbarHostState() }
+        LaunchedEffect(localMessage) {
+            snackbarHostState.showSnackbar(localMessage)
+            uiValidationMessage = null
+        }
+        SnackbarHost(hostState = snackbarHostState)
+    }
 
-            OutlinedTextField(
-                value = valorOfertaInput,
-                onValueChange = { newValue ->
-                    if (newValue.matches(Regex("^\\d*\\.?\\d*\$"))) {
-                        valorOfertaInput = newValue
+    subasta?.let { currentSubasta ->
+        Scaffold(
+            topBar = {
+                TopAppBar(
+                    title = { Text("Detalles: ${currentSubasta.titulo}", fontSize = 18.sp) },
+                    navigationIcon = {
+                        IconButton(onClick = { navController.popBackStack() }) {
+                            Icon(Icons.Filled.ArrowBack, contentDescription = "Volver")
+                        }
                     }
-                },
-                label = { Text("Valor de oferta (ej. 100.50)") },
-                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
-                modifier = Modifier.fillMaxWidth()
-            )
+                )
+            }
+        ) { paddingValues ->
+            // USAR LazyColumn para todo el contenido si la cuadrícula de puestos no es el principal elemento desplazable
+            // O integrar todo en LazyVerticalGrid si la cuadrícula es el elemento principal
+            // La solución más limpia para tu caso es hacer que LazyVerticalGrid sea el scroll principal y añadir items fijos.
 
-            Button(
-                onClick = {
-                    val montoDoble = valorOfertaInput.toDoubleOrNull()
-                    if (pujadorIdInput.isNotBlank() && montoDoble != null && montoDoble > subasta.precioActual) {
-                        onRealizarPuja(subasta.id, montoDoble, pujadorIdInput)
-                        pujadorIdInput = ""
-                        valorOfertaInput = ""
-                    } else {
-                        println("Error: Asegúrate de que tu ID de pujador no esté vacío, la oferta sea un número válido y mayor al precio actual.")
-                    }
-                },
-                enabled = pujadorIdInput.isNotBlank() && valorOfertaInput.isNotBlank() && valorOfertaInput.toDoubleOrNull() != null && valorOfertaInput.toDoubleOrNull()!! > subasta.precioActual,
-                modifier = Modifier.padding(vertical = 8.dp)
+            LazyVerticalGrid(
+                columns = GridCells.Fixed(10), // Esta definición se aplicará a los 'items' que no son de 'item' único
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                state = rememberLazyGridState() // Añadir un estado si necesitas controlar el scroll
             ) {
-                Text("Realizar Puja")
-            }
-        } else {
-            Text("Esta subasta no está activa para recibir pujas.", style = MaterialTheme.typography.bodyLarge, color = MaterialTheme.colorScheme.error)
-        }
+                // Nombre de la Subasta
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = currentSubasta.titulo,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
 
-        Spacer(modifier = Modifier.height(12.dp))
+                // Imagen de la Subasta
+                if (!currentSubasta.imagenUrl.isNullOrEmpty()) {
+                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        Image(
+                            painter = rememberAsyncImagePainter(currentSubasta.imagenUrl),
+                            contentDescription = "Imagen de la subasta",
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(160.dp)
+                                .clip(RoundedCornerShape(6.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+                }
 
-        Text("Historial de Pujas:", style = MaterialTheme.typography.titleMedium)
-        if (historialPujas.isEmpty()) {
-            Text("No hay pujas registradas para esta subasta.")
-        } else {
-            LazyColumn(modifier = Modifier.heightIn(max = 200.dp)) {
-                items(historialPujas) { puja ->
-                    Text("- Pujador: ${puja.pujador}: \$${String.format(Locale.getDefault(), "%.2f", puja.monto)} el ${dateFormatter.format(puja.fechaPuja)}")
+                // Oferta Mínima (Precio Inicial de la Subasta)
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = "Oferta Mínima: $${String.format(Locale.getDefault(), "%.2f", currentSubasta.precioInicial)}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+
+                // Fechas de la subasta
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = "Inicio: ${dateFormatter.format(currentSubasta.fechaInicio)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp
+                    )
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = "Fin: ${dateFormatter.format(currentSubasta.fechaFin)}",
+                        style = MaterialTheme.typography.bodySmall,
+                        fontSize = 12.sp
+                    )
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+
+                // Estado de la subasta
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = "Estado: ${currentSubasta.estado.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 16.sp,
+                        color = when (currentSubasta.estado) {
+                            "activa" -> Color(0xFF4CAF50)
+                            "finalizada" -> Color(0xFFF44336)
+                            else -> Color.Gray
+                        },
+                        modifier = Modifier.padding(bottom = 12.dp)
+                    )
+                }
+
+                // --- Matriz Visual de Puestos (10x10 Grid) ---
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Text(
+                        text = "Puestos (1-100):",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontSize = 16.sp,
+                        modifier = Modifier.padding(bottom = 6.dp)
+                    )
+                }
+
+                // Aquí van los items de la cuadrícula de puestos (estos sí respetarán GridCells.Fixed(10))
+                items(currentSubasta.puestos) { puesto ->
+                    val isOccupied = puesto.ocupadoPor != null
+                    val isSelected = selectedPuesto == puesto.numero
+
+                    Surface(
+                        modifier = Modifier
+                            .aspectRatio(1f)
+                            .clickable(enabled = !isOccupied && currentSubasta.estado == "activa") {
+                                selectedPuesto = if (isSelected) null else puesto.numero
+                            }
+                            .border(
+                                width = 1.dp,
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.primary
+                                    isOccupied -> Color.Red
+                                    else -> Color.Gray.copy(alpha = 0.5f)
+                                },
+                                shape = RoundedCornerShape(2.dp)
+                            )
+                            .background(
+                                color = when {
+                                    isSelected -> MaterialTheme.colorScheme.primaryContainer
+                                    isOccupied -> Color.Red.copy(alpha = 0.2f)
+                                    else -> Color.LightGray.copy(alpha = 0.2f)
+                                },
+                                shape = RoundedCornerShape(2.dp)
+                            ),
+                        shape = RoundedCornerShape(2.dp)
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                            modifier = Modifier.fillMaxSize()
+                        ) {
+                            Text(
+                                text = "${puesto.numero}",
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isOccupied) Color.Black else Color.Black
+                            )
+                            if (isOccupied) {
+                                Text(
+                                    text = "$${puesto.montoPuja.toInt()}",
+                                    fontSize = 8.sp,
+                                    color = Color.DarkGray
+                                )
+                                puesto.ocupadoPor?.nombre?.let {
+                                    Text(
+                                        text = it,
+                                        fontSize = 6.sp,
+                                        color = Color.DarkGray,
+                                        maxLines = 1
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+
+                // --- Formulario para ocupar puesto ---
+                if (currentSubasta.estado == "activa") {
+                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        OutlinedTextField(
+                            value = pujadorId,
+                            onValueChange = { pujadorId = it },
+                            label = { Text("ID pujador", fontSize = 14.sp) },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 56.dp),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
+                        )
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(6.dp)) }
+
+                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        OutlinedTextField(
+                            value = montoOferta,
+                            onValueChange = { newValue ->
+                                val filteredValue = newValue.filter { it.isDigit() || it == '.' }
+                                if (filteredValue.count { it == '.' } <= 1) {
+                                    montoOferta = filteredValue
+                                }
+                            },
+                            label = { Text("Monto oferta", fontSize = 14.sp) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(max = 56.dp),
+                            singleLine = true,
+                            textStyle = LocalTextStyle.current.copy(fontSize = 16.sp)
+                        )
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+
+                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        Button(
+                            onClick = {
+                                val puesto = selectedPuesto
+                                val monto = montoOferta.toDoubleOrNull()
+                                if (puesto != null && monto != null && pujadorId.isNotBlank()) {
+                                    if (monto > currentSubasta.precioInicial) {
+                                        viewModel.ocuparPuesto(currentSubasta.id, puesto, monto, pujadorId) {
+                                            pujadorId = ""
+                                            montoOferta = ""
+                                            selectedPuesto = null
+                                            uiValidationMessage = null
+                                        }
+                                    } else {
+                                        uiValidationMessage = "La oferta debe ser mayor que la mínima (${currentSubasta.precioInicial})"
+                                    }
+                                } else {
+                                    uiValidationMessage = "Completa puesto, ID y monto."
+                                }
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(48.dp),
+                            enabled = selectedPuesto != null && montoOferta.isNotBlank() && pujadorId.isNotBlank()
+                        ) {
+                            Text("Ocupar Puesto", fontSize = 16.sp)
+                        }
+                    }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+                }
+
+                // --- Resultados de la Subasta (si finalizada) ---
+                if (currentSubasta.estado == "finalizada") {
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Divider() }
+                    item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        Text(
+                            text = "Resultados Finales:",
+                            style = MaterialTheme.typography.titleLarge,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(bottom = 6.dp)
+                        )
+                    }
+
+                    if (currentSubasta.puestoGanador != null && currentSubasta.pujaGanadora != null) {
+                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                            Text(
+                                text = "Puesto Ganador: ${currentSubasta.puestoGanador}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                            Text(
+                                text = "Puja Ganadora: $${String.format(Locale.getDefault(), "%.2f", currentSubasta.pujaGanadora)}",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                        val ganadorPuesto = currentSubasta.puestos.find { it.numero == currentSubasta.puestoGanador }
+                        ganadorPuesto?.ocupadoPor?.nombre?.let { nombre ->
+                            item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                                Text(
+                                    text = "Ganador: $nombre",
+                                    style = MaterialTheme.typography.titleMedium,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
+                        } ?: item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                            Text(
+                                text = "Ganador: No especificado",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    } else {
+                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                            Text(
+                                text = "No hubo pujas válidas.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                fontSize = 14.sp
+                            )
+                        }
+                    }
+                }
+
+                // --- Botones de Acción (Finalizar, Eliminar) ---
+                item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
+                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceAround,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (currentSubasta.estado == "activa") {
+                            Button(
+                                onClick = {
+                                    viewModel.finalizar(currentSubasta.id)
+                                },
+                                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(48.dp)
+                            ) {
+                                Text("Finalizar", fontSize = 14.sp)
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                        }
+                        Button(
+                            onClick = {
+                                viewModel.eliminar(currentSubasta.id) {
+                                    navController.popBackStack()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(48.dp)
+                        ) {
+                            Text("Eliminar", fontSize = 14.sp)
+                        }
+                    }
                 }
             }
         }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            Button(onClick = { onFinalizarSubasta(subasta.id) },
-                enabled = subasta.estado == "activa"
-            ) {
-                Text("Finalizar Subasta")
-            }
-            Button(
-                onClick = { onEliminarSubasta(subasta.id) },
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-            ) {
-                Text("Eliminar Subasta", color = MaterialTheme.colorScheme.onError)
-            }
+    } ?: run {
+        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+            Text("Selecciona una subasta para ver los detalles.", fontSize = 16.sp)
         }
     }
 }

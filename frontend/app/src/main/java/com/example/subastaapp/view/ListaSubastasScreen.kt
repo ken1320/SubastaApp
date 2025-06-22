@@ -72,19 +72,28 @@ fun ListaSubastasScreen(
                                 Text(subasta.titulo, style = MaterialTheme.typography.titleMedium)
                                 Text("Fecha de inicio: ${dateFormatter.format(subasta.fechaInicio)}")
 
-                                if (subasta.estado == "finalizada" && subasta.ganador != null) {
-                                    val pujaGanadora = subasta.ultimaPuja
-                                    if (pujaGanadora != null) {
-                                        Text("👑 Ganador: ${pujaGanadora.pujador} (\$${String.format(Locale.getDefault(), "%.2f", pujaGanadora.monto)})",
+                                // --- LÓGICA DE VISUALIZACIÓN DE GANADOR/OFERTA ACTUAL ---
+                                if (subasta.estado == "finalizada" && subasta.puestoGanador != null && subasta.pujaGanadora != null) {
+                                    // Buscar el puesto ganador para obtener el nombre del pujador si está populado
+                                    val ganadorPuesto = subasta.puestos.find { it.numero == subasta.puestoGanador }
+                                    val nombreGanador = ganadorPuesto?.ocupadoPor?.nombre
+
+                                    if (nombreGanador != null) {
+                                        Text("👑 Ganador: $nombreGanador (\$${String.format(Locale.getDefault(), "%.2f", subasta.pujaGanadora)})",
                                             color = MaterialTheme.colorScheme.primary)
                                     } else {
-                                        Text("👑 Ganador ID: ${subasta.ganador}", color = MaterialTheme.colorScheme.primary)
+                                        // Si el nombre no está populado, mostrar el ID del ganador
+                                        Text("👑 Ganador ID: ${subasta.ganadorId} (\$${String.format(Locale.getDefault(), "%.2f", subasta.pujaGanadora)})",
+                                            color = MaterialTheme.colorScheme.primary)
                                     }
                                 } else if (subasta.estado == "activa" && subasta.precioActual > subasta.precioInicial) {
+                                    // Si la subasta está activa y hay una oferta actual mayor que la inicial
                                     Text("Oferta actual: \$${String.format(Locale.getDefault(), "%.2f", subasta.precioActual)}")
                                 } else {
+                                    // Si no hay ofertas o la subasta está en otro estado no finalizado/activo con puja
                                     Text("Sin ofertas aún / ${subasta.estado}")
                                 }
+                                // --- FIN LÓGICA ---
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(onClick = { onVerDetalles(subasta) }) {

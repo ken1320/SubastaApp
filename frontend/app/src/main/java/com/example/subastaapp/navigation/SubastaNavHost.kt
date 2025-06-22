@@ -6,11 +6,12 @@ import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.subastaapp.view.*
+import com.example.subastaapp.view.* // Asegúrate de que DetalleSubastaScreen esté en este paquete o impórtalo específicamente
 import com.example.subastaapp.viewmodel.SubastaViewModel
-import com.example.subastaapp.model.Subasta
+import com.example.subastaapp.ui.DetalleSubastaScreen // ¡¡¡NUEVA IMPORTACIÓN o verifica la existente!!!
 import com.example.subastaapp.model.SubastaCreationRequest
-import java.util.Date
+// import com.example.subastaapp.model.Subasta // Esta línea probablemente no es necesaria y puedes eliminarla
+import java.util.Date // Esta línea probablemente no es necesaria y puedes eliminarla
 
 @Composable
 fun SubastaNavHost(
@@ -32,7 +33,6 @@ fun SubastaNavHost(
 
         composable("crear") {
             CrearSubastaScreen(
-                // ¡CAMBIO CLAVE!: Ahora el callback onCrear recibe imagenUrl
                 onCrear = { titulo, descripcion, precioInicial, fechaFin, imagenUrl ->
                     println("DEBUG: onCrear received in NavHost. Creating SubastaCreationRequest...")
                     val subastaRequest = SubastaCreationRequest(
@@ -40,7 +40,7 @@ fun SubastaNavHost(
                         descripcion = descripcion,
                         precioInicial = precioInicial,
                         fechaFin = fechaFin,
-                        imagenUrl = imagenUrl // ¡NUEVO!: Pasar la URL de la imagen aquí
+                        imagenUrl = imagenUrl
                     )
                     viewModel.crearSubasta(subastaRequest) {
                         println("DEBUG: createSubasta callback received in NavHost. Navigating back.")
@@ -52,26 +52,17 @@ fun SubastaNavHost(
         }
 
         composable("detalle") {
-            val subastaDetalle by viewModel.subastaSeleccionada.collectAsState()
-
-            subastaDetalle?.let { subasta ->
-                DetalleSubastaScreen(
-                    subasta = subasta,
-                    onRealizarPuja = { subastaId, montoPuja, pujadorId ->
-                        viewModel.pujar(subastaId, montoPuja, pujadorId)
-                    },
-                    onFinalizarSubasta = { subastaId ->
-                        viewModel.finalizar(subastaId)
-                    },
-                    onEliminarSubasta = { subastaId ->
-                        viewModel.eliminar(subastaId) {
-                            navController.popBackStack()
-                        }
-                    }
-                )
-            } ?: run {
-                navController.popBackStack()
-            }
+            // No necesitamos pasar 'subasta' directamente aquí porque DetalleSubastaScreen
+            // ya obtiene la subasta seleccionada del ViewModel internamente.
+            // Tampoco necesitamos los callbacks individuales aquí, ya que DetalleSubastaScreen
+            // llamará directamente a las funciones del ViewModel.
+            DetalleSubastaScreen(
+                navController = navController, // Pasa el navController
+                viewModel = viewModel // Pasa el viewModel
+            )
+            // Ya no es necesario el subastaDetalle?.let { ... } aquí, ya que
+            // DetalleSubastaScreen maneja el caso de subasta nula internamente
+            // como lo definimos en la última corrección.
         }
     }
 }
