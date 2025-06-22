@@ -1,5 +1,28 @@
 const mongoose = require('mongoose');
 
+// Definir el esquema para cada Puesto dentro de la subasta
+const PuestoSchema = mongoose.Schema({
+    numero: {
+        type: Number,
+        required: true,
+        min: 1,
+        max: 100 // Limite de 100 puestos
+    },
+    ocupadoPor: { // ID del usuario que ocupa este puesto
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Usuario', // Asumiendo que tienes un modelo de Usuario
+        default: null
+    },
+    montoPuja: { // La puja específica para este puesto
+        type: Number,
+        default: 0
+    },
+    fechaOcupacion: {
+        type: Date,
+        default: Date.now
+    }
+});
+
 const SubastaSchema = mongoose.Schema({
     titulo: {
         type: String,
@@ -15,13 +38,16 @@ const SubastaSchema = mongoose.Schema({
         required: true,
         min: 0
     },
-    precioActual: { // Se actualiza con cada puja
+    // precioActual y ultimaPuja ya no son directamente aplicables a la subasta general
+    // Ahora, cada puesto tendrá su propio monto de puja.
+    // Podrías mantener precioActual si quieres que represente la puja más alta en general.
+    precioActual: { // Se actualizará con la puja más alta entre todos los puestos
         type: Number,
-        default: function() { return this.precioInicial; } // Valor por defecto igual al inicial
+        default: function() { return this.precioInicial; }
     },
     fechaInicio: {
         type: Date,
-        default: Date.now // La fecha actual al crear la subasta
+        default: Date.now
     },
     fechaFin: {
         type: Date,
@@ -32,20 +58,45 @@ const SubastaSchema = mongoose.Schema({
         enum: ['activa', 'finalizada', 'cancelada'],
         default: 'activa'
     },
-    ganador: { // ID del usuario que ganó la subasta
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Usuario', // Si tuvieras un modelo de Usuario
-        default: null
-    },
-    ultimaPuja: { // Para saber quién hizo la última puja
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Puja',
-        default: null
-    },
-    // ¡¡¡NUEVO CAMPO PARA LA IMAGEN!!!
+    // Ganador ya no es un solo ID, será un objeto con puesto y puja ganadora
+    // ganador: { // Este campo se determinará al finalizar
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'Usuario',
+    //     default: null
+    // },
+    // ultimaPuja ya no aplica de la misma manera
+    // ultimaPuja: {
+    //     type: mongoose.Schema.Types.ObjectId,
+    //     ref: 'Puja',
+    //     default: null
+    // },
     imagenUrl: {
-        type: String, // Las URLs son cadenas de texto
-        default: null // Opcional: puedes poner un valor por defecto si no se proporciona
+        type: String,
+        default: null
+    },
+    // ¡¡¡NUEVO CAMPO CRÍTICO PARA LOS PUESTOS!!!
+    puestos: {
+        type: [PuestoSchema], // Array de objetos Puesto
+        default: () => Array.from({ length: 100 }, (_, i) => ({
+            numero: i + 1,
+            ocupadoPor: null,
+            montoPuja: 0,
+            fechaOcupacion: null
+        }))
+    },
+    // Campos para el ganador final (se llenan al finalizar)
+    puestoGanador: {
+        type: Number,
+        default: null
+    },
+    pujaGanadora: {
+        type: Number,
+        default: null
+    },
+    ganadorId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Usuario',
+        default: null
     }
 });
 

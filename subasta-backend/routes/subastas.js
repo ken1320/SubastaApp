@@ -1,17 +1,20 @@
 const express = require('express');
 const router = express.Router();
-const Subasta = require('../models/Subasta'); // Asegúrate de que la ruta sea correcta
-const Puja = require('../models/Puja');     // Asegúrate de que la ruta sea correcta
+const Subasta = require('../models/Subasta');
+const Puja = require('../models/Puja'); // Todavía se usa si quieres un historial detallado de cada puja
 
 // @route   GET /api/subastas
 // @desc    Obtener todas las subastas
-// @access  Public (o lo que corresponda en tu app)
 router.get('/', async (req, res) => {
     try {
-        // .find() recupera todos los documentos.
-        // .populate('ultimaPuja') si quieres que el objeto de la última puja se incluya en la respuesta.
-        // .sort({ fechaInicio: -1 }) para ordenar por fecha de inicio descendente.
-        const subastas = await Subasta.find().populate('ultimaPuja').sort({ fechaInicio: -1 });
+        // Necesitamos poblar los puestos si quieres ver la info detallada de ocupadoPor
+        // Esto asume que tienes un modelo de Usuario y que pujadorId es el ID de un usuario
+        const subastas = await Subasta.find()
+                                        .populate({
+                                            path: 'puestos.ocupadoPor', // Popula el campo ocupadoPor dentro de cada objeto en el array 'puestos'
+                                            select: 'nombre' // Selecciona solo el campo 'nombre' del usuario si existe
+                                        })
+                                        .sort({ fechaInicio: -1 });
         res.json(subastas);
     } catch (err) {
         console.error(err.message);
@@ -21,62 +24,46 @@ router.get('/', async (req, res) => {
 
 // @route   POST /api/subastas
 // @desc    Crear una nueva subasta
-// @access  Public (o lo que corresponda en tu app)
 router.post('/', async (req, res) => {
-    // DESESTRUCTURACIÓN: Extrae los campos del cuerpo de la solicitud (req.body).
-    // ¡Aquí se incluye 'imagenUrl' que tu aplicación Android envía!
     const { titulo, descripcion, precioInicial, fechaFin, imagenUrl } = req.body;
 
-    // --- Validaciones básicas (puedes añadir más si es necesario) ---
     if (!titulo || !descripcion || !precioInicial || !fechaFin) {
         return res.status(400).json({ msg: 'Por favor, introduce todos los campos obligatorios: titulo, descripcion, precioInicial, fechaFin' });
     }
-    // Opcional: Validar que imagenUrl no esté vacía si es requerida
-    // if (!imagenUrl || imagenUrl.trim() === '') {
-    //     return res.status(400).json({ msg: 'La URL de la imagen es obligatoria' });
-    // }
-
-    // Validación de fecha de fin
     if (new Date(fechaFin) <= new Date()) {
         return res.status(400).json({ msg: 'La fecha de fin debe ser futura' });
     }
 
     try {
-        // Crea una nueva instancia del modelo Subasta con los datos recibidos.
-        // ¡Aquí se asigna 'imagenUrl' al modelo de Mongoose!
         const nuevaSubasta = new Subasta({
             titulo,
             descripcion,
             precioInicial,
-            // precioActual se establecerá al precioInicial por defecto en el esquema
-            // fechaInicio se establecerá a la fecha actual por defecto en el esquema
             fechaFin,
-            estado: 'activa', // El estado por defecto ya está en el esquema, pero puedes forzarlo aquí si quieres
-            imagenUrl // Esto es un shorthand para 'imagenUrl: imagenUrl'
+            imagenUrl,
+            // Los 'puestos' se inicializarán automáticamente con el 'default' en el esquema
         });
 
-        // Guarda la nueva subasta en la base de datos.
         const subasta = await nuevaSubasta.save();
-
-        // Responde con el estado 201 (Created) y el objeto de la subasta recién creada.
-        // Esta respuesta incluirá la imagenUrl si se guardó correctamente.
         res.status(201).json(subasta);
     } catch (err) {
         console.error('Error al crear la subasta:', err.message);
-        // Puedes añadir más detalles de error si 'err' contiene propiedades específicas (ej. err.code)
         res.status(500).send('Error del servidor al crear la subasta');
     }
 });
 
-// @route   POST /api/subastas/:id/pujar
-// @desc    Realizar una puja en una subasta
-// @access  Public (o lo que corresponda en tu app)
-router.post('/:id/pujar', async (req, res) => {
-    const { monto, pujadorId } = req.body; // pujadorId sería el ID del usuario que puja
+// @route   POST /api/subastas/:id/ocuparPuesto
+// @desc    Ocupar un puesto específico en una subasta
+router.post('/:id/ocuparPuesto', async (req, res) => {
+    const { puestoNumero, montoPuja, pujadorId } = req.body;
     const { id } = req.params;
 
-    if (!monto || !pujadorId) {
-        return res.status(400).json({ msg: 'Monto de puja y ID del pujador son obligatorios' });
+    // Validaciones
+    if (!puestoNumero || !montoPuja || !pujadorId) {
+        return res.status(400).json({ msg: 'Número de puesto, monto de puja y ID del pujador son obligatorios' });
+    }
+    if (puestoNumero < 1 || puestoNumero > 100) {
+        return res.status(400).json({ msg: 'El número de puesto debe estar entre 1 y 100' });
     }
 
     try {
@@ -86,50 +73,48 @@ router.post('/:id/pujar', async (req, res) => {
             return res.status(404).json({ msg: 'Subasta no encontrada' });
         }
         if (subasta.estado !== 'activa') {
-            return res.status(400).json({ msg: 'La subasta no está activa para pujar' });
+            return res.status(400).json({ msg: 'La subasta no está activa para ocupar puestos' });
         }
-        // Verificar si la fecha de fin ha pasado antes de permitir la puja
         if (new Date() > new Date(subasta.fechaFin)) {
-            // Opcional: Actualizar el estado a 'finalizada' si la fecha ha pasado y no se ha hecho manualmente
-            if (subasta.estado === 'activa') {
-                subasta.estado = 'finalizada';
-                await subasta.save();
-            }
+            subasta.estado = 'finalizada'; // Actualizar estado si la fecha ha pasado
+            await subasta.save();
             return res.status(400).json({ msg: 'La subasta ha finalizado' });
         }
-        if (monto <= subasta.precioActual) {
-            return res.status(400).json({ msg: `La puja debe ser mayor que el precio actual (${subasta.precioActual})` });
+
+        const puestoIndex = puestoNumero - 1; // Los arrays son base 0
+        if (subasta.puestos[puestoIndex].ocupadoPor !== null) {
+            return res.status(400).json({ msg: `El puesto ${puestoNumero} ya está ocupado.` });
+        }
+        if (montoPuja <= subasta.precioInicial) { // Si hay una oferta mínima general
+            return res.status(400).json({ msg: `La puja debe ser mayor que el precio inicial (${subasta.precioInicial})` });
         }
 
-        const nuevaPuja = new Puja({
-            monto,
-            subasta: id,
-            pujador: pujadorId // Aquí iría el ID del usuario
-        });
+        // Ocupar el puesto
+        subasta.puestos[puestoIndex].ocupadoPor = pujadorId;
+        subasta.puestos[puestoIndex].montoPuja = montoPuja;
+        subasta.puestos[puestoIndex].fechaOcupacion = new Date();
 
-        await nuevaPuja.save();
+        // Opcional: Actualizar el precioActual de la subasta al monto más alto si es necesario
+        if (montoPuja > subasta.precioActual) {
+            subasta.precioActual = montoPuja;
+        }
 
-        // Actualizar la subasta con el nuevo precio y la última puja
-        subasta.precioActual = monto;
-        subasta.ultimaPuja = nuevaPuja._id; // Guardar la referencia a la última puja
         await subasta.save();
 
-        res.status(200).json({ msg: 'Puja realizada con éxito', nuevaPuja, subastaActualizada: subasta });
+        res.status(200).json({ msg: `Puesto ${puestoNumero} ocupado con éxito`, subastaActualizada: subasta });
     } catch (err) {
-        console.error('Error al realizar la puja:', err.message);
-        res.status(500).send('Error del servidor al pujar');
+        console.error('Error al ocupar el puesto:', err.message);
+        res.status(500).send('Error del servidor al ocupar el puesto');
     }
 });
 
 // @route   POST /api/subastas/:id/finalizar
-// @desc    Finalizar una subasta manualmente
-// @access  Public (o lo que corresponda en tu app)
+// @desc    Finalizar una subasta y determinar el ganador del puesto
 router.post('/:id/finalizar', async (req, res) => {
     const { id } = req.params;
 
     try {
-        // Popula 'ultimaPuja' para poder acceder al 'pujador' si existe
-        const subasta = await Subasta.findById(id).populate('ultimaPuja');
+        const subasta = await Subasta.findById(id).populate('puestos.ocupadoPor'); // Popula para obtener info del ganador
 
         if (!subasta) {
             return res.status(404).json({ msg: 'Subasta no encontrada' });
@@ -139,15 +124,35 @@ router.post('/:id/finalizar', async (req, res) => {
         }
 
         subasta.estado = 'finalizada';
-        if (subasta.ultimaPuja) {
-            subasta.ganador = subasta.ultimaPuja.pujador; // El ganador es el último pujador
-        } else {
-            subasta.ganador = null; // No hubo pujas
-        }
+
+        // Lógica para determinar el puesto y la puja ganadora
+        let mejorPuesto = null;
+        let mejorPuja = 0;
+        let ganadorId = null;
+
+        subasta.puestos.forEach(puesto => {
+            if (puesto.ocupadoPor && puesto.montoPuja > mejorPuja) {
+                mejorPuja = puesto.montoPuja;
+                mejorPuesto = puesto.numero;
+                ganadorId = puesto.ocupadoPor._id; // Al ser populado, ._id es el ID del usuario
+            }
+        });
+
+        subasta.puestoGanador = mejorPuesto;
+        subasta.pujaGanadora = mejorPuja;
+        subasta.ganadorId = ganadorId; // Guarda el ID del ganador
 
         await subasta.save();
 
-        res.status(200).json({ msg: 'Subasta finalizada con éxito', subasta });
+        res.status(200).json({
+            msg: 'Subasta finalizada con éxito',
+            subasta,
+            resultado: {
+                puestoGanador: mejorPuesto,
+                pujaGanadora: mejorPuja,
+                ganadorNombre: subasta.puestos.find(p => p.numero === mejorPuesto)?.ocupadoPor?.nombre || 'N/A' // Si el nombre del usuario se populó
+            }
+        });
     } catch (err) {
         console.error('Error al finalizar la subasta:', err.message);
         res.status(500).send('Error del servidor al finalizar');
@@ -156,7 +161,6 @@ router.post('/:id/finalizar', async (req, res) => {
 
 // @route   DELETE /api/subastas/:id
 // @desc    Eliminar una subasta
-// @access  Public (o lo que corresponda en tu app)
 router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
@@ -167,7 +171,6 @@ router.delete('/:id', async (req, res) => {
             return res.status(404).json({ msg: 'Subasta no encontrada' });
         }
 
-        // Eliminar la subasta por su ID
         await Subasta.deleteOne({ _id: id }); // O puedes usar findByIdAndDelete(id)
 
         res.status(200).json({ msg: 'Subasta eliminada con éxito' });
