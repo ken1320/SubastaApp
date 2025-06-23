@@ -2,26 +2,15 @@ const mongoose = require('mongoose');
 
 // Definir el esquema para cada Puesto dentro de la subasta
 const PuestoSchema = mongoose.Schema({
-    numero: {
-        type: Number,
-        required: true,
-        min: 1,
-        max: 100 // Limite de 100 puestos
-    },
-    ocupadoPor: { // ID del usuario que ocupa este puesto
-        type: mongoose.Schema.Types.ObjectId,
-        ref: 'Usuario', // Asumiendo que tienes un modelo de Usuario
-        default: null
-    },
-    montoPuja: { // La puja específica para este puesto
-        type: Number,
-        default: 0
-    },
-    fechaOcupacion: {
-        type: Date,
-        default: Date.now
-    }
+  numero: Number,
+  // 🔁 CAMBIAR ESTO
+  // ocupadoPor: { type: mongoose.Schema.Types.ObjectId, ref: 'Usuario' },
+  ocupadoPor: { type: String }, // Solo nombre del comprador
+
+  montoPuja: Number,
+  fechaOcupacion: { type: Date, default: Date.now }
 });
+
 
 const SubastaSchema = mongoose.Schema({
     titulo: {

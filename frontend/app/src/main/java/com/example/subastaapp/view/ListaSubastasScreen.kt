@@ -76,7 +76,8 @@ fun ListaSubastasScreen(
                                 if (subasta.estado == "finalizada" && subasta.puestoGanador != null && subasta.pujaGanadora != null) {
                                     // Buscar el puesto ganador para obtener el nombre del pujador si está populado
                                     val ganadorPuesto = subasta.puestos.find { it.numero == subasta.puestoGanador }
-                                    val nombreGanador = ganadorPuesto?.ocupadoPor?.nombre
+                                    val nombreGanador = ganadorPuesto?.ocupadoPor
+
 
                                     if (nombreGanador != null) {
                                         Text("👑 Ganador: $nombreGanador (\$${String.format(Locale.getDefault(), "%.2f", subasta.pujaGanadora)})",

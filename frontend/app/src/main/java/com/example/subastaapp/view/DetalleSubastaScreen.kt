@@ -40,7 +40,7 @@ fun DetalleSubastaScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    var pujadorId by remember { mutableStateOf("") }
+    var pujadorId by remember { mutableStateOf("60c72b2f9b1d8c001f8e4d3a") }
     var montoOferta by remember { mutableStateOf("") }
     var selectedPuesto by remember { mutableStateOf<Int?>(null) }
 
@@ -228,13 +228,8 @@ fun DetalleSubastaScreen(
                                     fontSize = 8.sp,
                                     color = Color.DarkGray
                                 )
-                                puesto.ocupadoPor?.nombre?.let {
-                                    Text(
-                                        text = it,
-                                        fontSize = 6.sp,
-                                        color = Color.DarkGray,
-                                        maxLines = 1
-                                    )
+                                puesto.ocupadoPor?.let {
+                                    Text(text = it, fontSize = 6.sp)
                                 }
                             }
                         }
@@ -248,7 +243,7 @@ fun DetalleSubastaScreen(
                         OutlinedTextField(
                             value = pujadorId,
                             onValueChange = { pujadorId = it },
-                            label = { Text("ID pujador", fontSize = 14.sp) },
+                            label = { Text("ID pujador", fontSize = 14.sp) }, // También puedes limpiar el label
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 56.dp),
@@ -280,12 +275,16 @@ fun DetalleSubastaScreen(
 
                     item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
                         Button(
-                            onClick = {
+                            onClick =  {
+                                // Accedemos a currentSubasta aquí dentro, ya que estamos en el scope del 'let'
+                                val subastaIdActual = currentSubasta.id
                                 val puesto = selectedPuesto
                                 val monto = montoOferta.toDoubleOrNull()
+
                                 if (puesto != null && monto != null && pujadorId.isNotBlank()) {
                                     if (monto > currentSubasta.precioInicial) {
-                                        viewModel.ocuparPuesto(currentSubasta.id, puesto, monto, pujadorId) {
+                                        // Usamos la variable local segura que no puede ser nula
+                                        viewModel.ocuparPuesto(subastaIdActual, puesto, monto, pujadorId) {
                                             pujadorId = ""
                                             montoOferta = ""
                                             selectedPuesto = null
@@ -342,8 +341,8 @@ fun DetalleSubastaScreen(
                             )
                         }
                         val ganadorPuesto = currentSubasta.puestos.find { it.numero == currentSubasta.puestoGanador }
-                        ganadorPuesto?.ocupadoPor?.nombre?.let { nombre ->
-                            item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        ganadorPuesto?.ocupadoPor?.let { nombre ->
+                            item(span = { GridItemSpan(maxLineSpan) }) {
                                 Text(
                                     text = "Ganador: $nombre",
                                     style = MaterialTheme.typography.titleMedium,

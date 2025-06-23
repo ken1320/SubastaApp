@@ -10,11 +10,11 @@ router.get('/', async (req, res) => {
         // Necesitamos poblar los puestos si quieres ver la info detallada de ocupadoPor
         // Esto asume que tienes un modelo de Usuario y que pujadorId es el ID de un usuario
         const subastas = await Subasta.find()
-                                        .populate({
-                                            path: 'puestos.ocupadoPor', // Popula el campo ocupadoPor dentro de cada objeto en el array 'puestos'
-                                            select: 'nombre' // Selecciona solo el campo 'nombre' del usuario si existe
-                                        })
-                                        .sort({ fechaInicio: -1 });
+            .populate({
+                path: 'puestos.ocupadoPor', // Popula el campo ocupadoPor dentro de cada objeto en el array 'puestos'
+                select: 'nombre' // Selecciona solo el campo 'nombre' del usuario si existe
+            })
+            .sort({ fechaInicio: -1 });
         res.json(subastas);
     } catch (err) {
         console.error(err.message);
@@ -68,10 +68,18 @@ router.post('/:id/ocuparPuesto', async (req, res) => {
 
     try {
         const subasta = await Subasta.findById(id);
-
         if (!subasta) {
             return res.status(404).json({ msg: 'Subasta no encontrada' });
         }
+
+        // --- AÑADE ESTA VALIDACIÓN ---
+        // Carga el modelo de Usuario al principio del archivo si no lo has hecho:
+        // const Usuario = require('../models/Usuario');
+        if (typeof pujadorId !== 'string' || pujadorId.trim() === '') {
+            return res.status(400).json({ msg: 'Nombre del comprador es obligatorio' });
+        }
+        // --- FIN DE LA VALIDACIÓN ---
+
         if (subasta.estado !== 'activa') {
             return res.status(400).json({ msg: 'La subasta no está activa para ocupar puestos' });
         }
@@ -90,7 +98,7 @@ router.post('/:id/ocuparPuesto', async (req, res) => {
         }
 
         // Ocupar el puesto
-        subasta.puestos[puestoIndex].ocupadoPor = pujadorId;
+        subasta.puestos[puestoIndex].ocupadoPor = pujadorId.trim();
         subasta.puestos[puestoIndex].montoPuja = montoPuja;
         subasta.puestos[puestoIndex].fechaOcupacion = new Date();
 

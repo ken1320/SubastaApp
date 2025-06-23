@@ -1,35 +1,38 @@
 package com.example.subastaapp.model
 
+import com.google.gson.annotations.SerializedName
 import java.util.Date
 
 // Nuevo data class para representar cada puesto
 data class Puesto(
     val numero: Int,
-    val ocupadoPor: UsuarioSimple? = null, // Podría ser null si no está ocupado
+    val ocupadoPor: String? = null,
     val montoPuja: Double,
     val fechaOcupacion: Date? = null
 )
 
 // Nuevo data class para un usuario simple para populación
 data class UsuarioSimple(
-    val _id: String, // Asumiendo que el ID del usuario es _id en MongoDB
-    val nombre: String // Asumiendo que tienes un campo 'nombre' en tu modelo de Usuario
+    @SerializedName("_id") // Le dice a GSON que mapee el campo "_id" del JSON aquí
+    val id: String,        // Usamos 'id' por consistencia en Kotlin
+    val nombre: String
 )
 
 data class Subasta(
-    val id: String, // Corresponde al _id de MongoDB
+    @SerializedName("_id") // <--- AÑADE ESTA LÍNEA
+    val id: String, // Ahora GSON sabe que _id en JSON corresponde a este campo 'id'
     val titulo: String,
     val descripcion: String,
     val precioInicial: Double,
-    val precioActual: Double, // Será la puja más alta en general
+    val precioActual: Double,
     val fechaInicio: Date,
     val fechaFin: Date,
     val estado: String,
     val imagenUrl: String? = null,
-    val puestos: List<Puesto>, // ¡Nuevo campo! Lista de 100 puestos
-    val puestoGanador: Int? = null, // Campo para el resultado final
-    val pujaGanadora: Double? = null, // Campo para el resultado final
-    val ganadorId: String? = null // Campo para el resultado final
+    val puestos: List<Puesto>,
+    val puestoGanador: Int? = null,
+    val pujaGanadora: Double? = null,
+    val ganadorId: String? = null
 )
 
 // SubastaCreationRequest se mantiene igual, ya que la inicialización de 'puestos' la hace el backend
@@ -45,5 +48,5 @@ data class SubastaCreationRequest(
 data class OcuparPuestoRequest(
     val puestoNumero: Int,
     val montoPuja: Double,
-    val pujadorId: String // Esto debería ser el ID del usuario
+    val pujadorId: String // Aquí le puedes cambiar el nombre si quieres: 'comprador'
 )
