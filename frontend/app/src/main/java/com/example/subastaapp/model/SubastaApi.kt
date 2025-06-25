@@ -1,29 +1,37 @@
 package com.example.subastaapp.model
 
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import retrofit2.Response
-import retrofit2.http.Body
-import retrofit2.http.GET
-import retrofit2.http.POST
-import retrofit2.http.DELETE
-import retrofit2.http.Path
+import retrofit2.http.*
+
+data class UploadResponse(
+    val msg: String,
+    val filePath: String
+)
 
 interface SubastaApi {
-    @GET("subastas")
+    @GET("api/subastas")
     suspend fun getSubastas(): List<Subasta>
 
-    @POST("subastas")
+    @POST("api/subastas") // ¡¡¡CAMBIA ESTO!!! Añade "/api/"
     suspend fun crearSubasta(@Body subasta: SubastaCreationRequest): Response<Subasta>
 
-    // ¡¡¡VERIFICA ESTA FUNCIÓN!!!
-    @POST("subastas/{id}/ocuparPuesto")
+    @Multipart
+    @POST("api/upload")
+    suspend fun uploadImage(
+        @Part image: MultipartBody.Part
+    ): Response<UploadResponse>
+
+    @POST("api/subastas/{id}/ocuparPuesto") // ¡¡¡Asegúrate de que esta también tenga "/api/"!!!
     suspend fun ocuparPuesto(
         @Path("id") subastaId: String,
         @Body request: OcuparPuestoRequest
-    ): Response<Void> // O Response<Subasta> si quieres la subasta actualizada, pero Response<Void> está bien para que no espere un cuerpo de respuesta específico.
+    ): Response<Void>
 
-    @POST("subastas/{id}/finalizar")
+    @POST("api/subastas/{id}/finalizar") // ¡¡¡Asegúrate de que esta también tenga "/api/"!!!
     suspend fun finalizar(@Path("id") subastaId: String): Response<Void>
 
-    @DELETE("subastas/{id}")
+    @DELETE("api/subastas/{id}") // ¡¡¡Asegúrate de que esta también tenga "/api/"!!!
     suspend fun eliminar(@Path("id") subastaId: String): Response<Void>
 }

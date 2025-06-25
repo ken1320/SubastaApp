@@ -8,10 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import com.example.subastaapp.view.* // Asegúrate de que DetalleSubastaScreen esté en este paquete o impórtalo específicamente
 import com.example.subastaapp.viewmodel.SubastaViewModel
-import com.example.subastaapp.ui.DetalleSubastaScreen // ¡¡¡NUEVA IMPORTACIÓN o verifica la existente!!!
-import com.example.subastaapp.model.SubastaCreationRequest
+import com.example.subastaapp.view.DetalleSubastaScreen // ¡¡¡NUEVA IMPORTACIÓN o verifica la existente!!!
 // import com.example.subastaapp.model.Subasta // Esta línea probablemente no es necesaria y puedes eliminarla
-import java.util.Date // Esta línea probablemente no es necesaria y puedes eliminarla
 
 @Composable
 fun SubastaNavHost(
@@ -33,17 +31,16 @@ fun SubastaNavHost(
 
         composable("crear") {
             CrearSubastaScreen(
-                onCrear = { titulo, descripcion, precioInicial, fechaFin, imagenUrl ->
-                    println("DEBUG: onCrear received in NavHost. Creating SubastaCreationRequest...")
-                    val subastaRequest = SubastaCreationRequest(
-                        titulo = titulo,
-                        descripcion = descripcion,
-                        precioInicial = precioInicial,
-                        fechaFin = fechaFin,
-                        imagenUrl = imagenUrl
-                    )
-                    viewModel.crearSubasta(subastaRequest) {
-                        println("DEBUG: createSubasta callback received in NavHost. Navigating back.")
+                // ¡CAMBIO! El callback ahora recibe una Uri
+                onCrear = { titulo, descripcion, precioInicial, fechaFin, imagenUri ->
+                    // ¡CAMBIO! Llamamos a la nueva versión de crearSubasta en el ViewModel
+                    viewModel.crearSubasta(
+                        titulo,
+                        descripcion,
+                        precioInicial,
+                        fechaFin,
+                        imagenUri
+                    ) {
                         navController.popBackStack()
                     }
                 },

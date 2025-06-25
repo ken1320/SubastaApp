@@ -2,6 +2,7 @@
 const express = require('express');
 const connectDB = require('./config/db');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -20,11 +21,13 @@ app.use(cors());
 
 // Definir Rutas
 app.use('/api/subastas', require('./routes/subastas'));
+app.use('/api/upload', require('./routes/upload'));
 
 // Ruta de prueba
 app.get('/', (req, res) => {
     res.send('API de Subastas funcionando!');
 });
+app.use(express.static(path.join(__dirname, 'public')));
 
 const PORT = process.env.PORT || 5000;
 

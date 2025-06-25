@@ -1,4 +1,5 @@
-package com.example.subastaapp.ui
+package com.example.subastaapp.view
+
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,6 +30,7 @@ import com.example.subastaapp.viewmodel.SubastaViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.compose.ui.draw.clip
+import com.example.subastaapp.model.RetrofitClient // <-- ¡IMPORTADO CORRECTAMENTE!
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -40,7 +42,7 @@ fun DetalleSubastaScreen(
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
 
-    var pujadorId by remember { mutableStateOf("60c72b2f9b1d8c001f8e4d3a") }
+    var pujadorId by remember { mutableStateOf("") }
     var montoOferta by remember { mutableStateOf("") }
     var selectedPuesto by remember { mutableStateOf<Int?>(null) }
 
@@ -88,10 +90,6 @@ fun DetalleSubastaScreen(
                 )
             }
         ) { paddingValues ->
-            // USAR LazyColumn para todo el contenido si la cuadrícula de puestos no es el principal elemento desplazable
-            // O integrar todo en LazyVerticalGrid si la cuadrícula es el elemento principal
-            // La solución más limpia para tu caso es hacer que LazyVerticalGrid sea el scroll principal y añadir items fijos.
-
             LazyVerticalGrid(
                 columns = GridCells.Fixed(10), // Esta definición se aplicará a los 'items' que no son de 'item' único
                 modifier = Modifier
@@ -116,8 +114,11 @@ fun DetalleSubastaScreen(
                 // Imagen de la Subasta
                 if (!currentSubasta.imagenUrl.isNullOrEmpty()) {
                     item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        // CONSTRUYE LA URL COMPLETA AQUÍ, usando la constante BASE_URL
+                        val fullImageUrl = "${RetrofitClient.BASE_URL}${currentSubasta.imagenUrl}"
+
                         Image(
-                            painter = rememberAsyncImagePainter(currentSubasta.imagenUrl),
+                            painter = rememberAsyncImagePainter(fullImageUrl), // <-- Se usa la URL COMPLETA
                             contentDescription = "Imagen de la subasta",
                             modifier = Modifier
                                 .fillMaxWidth()
