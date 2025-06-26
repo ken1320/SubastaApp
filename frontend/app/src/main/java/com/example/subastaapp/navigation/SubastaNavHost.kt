@@ -6,34 +6,44 @@ import androidx.compose.runtime.getValue
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import com.example.subastaapp.view.* // Asegúrate de que DetalleSubastaScreen esté en este paquete o impórtalo específicamente
+import com.example.subastaapp.view.*
 import com.example.subastaapp.viewmodel.SubastaViewModel
-import com.example.subastaapp.view.DetalleSubastaScreen // ¡¡¡NUEVA IMPORTACIÓN o verifica la existente!!!
-// import com.example.subastaapp.model.Subasta // Esta línea probablemente no es necesaria y puedes eliminarla
 
+/**
+ * Define la estructura de navegación de la aplicación de subastas.
+ * Gestiona las transiciones entre las diferentes pantallas.
+ *
+ * @param navController Controlador de navegación para manejar las rutas.
+ * @param viewModel ViewModel que proporciona los datos y lógica de negocio.
+ */
 @Composable
 fun SubastaNavHost(
     navController: NavHostController,
     viewModel: SubastaViewModel
 ) {
     NavHost(navController = navController, startDestination = "lista") {
+        /**
+         * Ruta para la pantalla de lista de subastas.
+         */
         composable("lista") {
-            val subastasState by viewModel.subastas.collectAsState()
+            val subastasState by viewModel.subastas.collectAsState() // Observa el estado de las subastas.
             ListaSubastasScreen(
-                subastas = subastasState,
-                onCrearSubasta = { navController.navigate("crear") },
+                subastas = subastasState, // Pasa la lista de subastas.
+                onCrearSubasta = { navController.navigate("crear") }, // Navega a la pantalla de creación.
                 onVerDetalles = { subasta ->
-                    viewModel.seleccionarSubasta(subasta)
-                    navController.navigate("detalle")
+                    viewModel.seleccionarSubasta(subasta) // Selecciona la subasta para ver detalles.
+                    navController.navigate("detalle") // Navega a la pantalla de detalle.
                 }
             )
         }
 
+        /**
+         * Ruta para la pantalla de creación de subastas.
+         */
         composable("crear") {
             CrearSubastaScreen(
-                // ¡CAMBIO! El callback ahora recibe una Uri
                 onCrear = { titulo, descripcion, precioInicial, fechaFin, imagenUri ->
-                    // ¡CAMBIO! Llamamos a la nueva versión de crearSubasta en el ViewModel
+                    // Llama a la función de crear subasta en el ViewModel.
                     viewModel.crearSubasta(
                         titulo,
                         descripcion,
@@ -41,25 +51,22 @@ fun SubastaNavHost(
                         fechaFin,
                         imagenUri
                     ) {
-                        navController.popBackStack()
+                        navController.popBackStack() // Vuelve a la pantalla anterior al crear.
                     }
                 },
-                onCancelar = { navController.popBackStack() }
+                onCancelar = { navController.popBackStack() } // Vuelve a la pantalla anterior al cancelar.
             )
         }
 
+        /**
+         * Ruta para la pantalla de detalle de una subasta.
+         */
         composable("detalle") {
-            // No necesitamos pasar 'subasta' directamente aquí porque DetalleSubastaScreen
-            // ya obtiene la subasta seleccionada del ViewModel internamente.
-            // Tampoco necesitamos los callbacks individuales aquí, ya que DetalleSubastaScreen
-            // llamará directamente a las funciones del ViewModel.
+            // La pantalla de detalle obtiene la subasta directamente del ViewModel.
             DetalleSubastaScreen(
-                navController = navController, // Pasa el navController
-                viewModel = viewModel // Pasa el viewModel
+                navController = navController, // Pasa el navController.
+                viewModel = viewModel // Pasa el viewModel.
             )
-            // Ya no es necesario el subastaDetalle?.let { ... } aquí, ya que
-            // DetalleSubastaScreen maneja el caso de subasta nula internamente
-            // como lo definimos en la última corrección.
         }
     }
 }

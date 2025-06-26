@@ -21,42 +21,43 @@ import coil.compose.rememberAsyncImagePainter
 import java.text.SimpleDateFormat
 import java.util.*
 
+/**
+ * Pantalla para crear una nueva subasta.
+ * Permite ingresar detalles, seleccionar una fecha y elegir una imagen.
+ *
+ * @param onCrear Callback para guardar la nueva subasta.
+ * @param onCancelar Callback para cancelar la creación.
+ */
 @Composable
 fun CrearSubastaScreen(
-    // El callback ahora pasa una Uri en lugar de una String para la imagen
     onCrear: (titulo: String, descripcion: String, precioInicial: Double, fechaFin: Date, imagenUri: Uri?) -> Unit,
     onCancelar: () -> Unit
 ) {
-    var titulo by remember { mutableStateOf("") }
-    var descripcion by remember { mutableStateOf("") }
-    var precioInicialText by remember { mutableStateOf("") }
-    var selectedDate by remember { mutableStateOf<Date?>(null) }
+    var titulo by remember { mutableStateOf("") } // Estado para el título.
+    var descripcion by remember { mutableStateOf("") } // Estado para la descripción.
+    var precioInicialText by remember { mutableStateOf("") } // Estado para el precio inicial (texto).
+    var selectedDate by remember { mutableStateOf<Date?>(null) } // Estado para la fecha seleccionada.
 
-    // Estado para la URI de la imagen seleccionada
-    var imagenUri by remember { mutableStateOf<Uri?>(null) }
-    val context = LocalContext.current
+    var imagenUri by remember { mutableStateOf<Uri?>(null) } // Estado para la URI de la imagen.
+    val context = LocalContext.current // Contexto actual de la composición.
 
-    // Launcher para seleccionar una imagen de la galería
+    // Launcher para seleccionar una imagen de la galería.
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
-        imagenUri = uri
+        imagenUri = uri // Actualiza la URI de la imagen seleccionada.
     }
 
-    // --- INICIO DE LA CORRECCIÓN ---
+    val calendar = Calendar.getInstance() // Instancia del calendario.
 
-    // 1. Se declara la variable 'calendar' ANTES de ser usada.
-    val calendar = Calendar.getInstance()
-
-    // 2. Se define el listener de forma explícita para evitar errores de inferencia de tipo.
+    // Listener para el selector de fecha.
     val dateSetListener = DatePickerDialog.OnDateSetListener { _, year, month, dayOfMonth ->
         val selectedCalendar = Calendar.getInstance()
-        selectedCalendar.set(year, month, dayOfMonth, 23, 59, 59)
+        selectedCalendar.set(year, month, dayOfMonth, 23, 59, 59) // Establece la fecha seleccionada.
         selectedDate = selectedCalendar.time
-        println("DEBUG: Fecha seleccionada en DatePicker Callback: ${selectedDate?.let { SimpleDateFormat("dd/MM/yyyy HH:mm:ss", Locale.getDefault()).format(it) }}")
     }
 
-    // 3. Se crea el DatePickerDialog usando las variables corregidas.
+    // Cuadro de diálogo para seleccionar la fecha.
     val datePickerDialog = DatePickerDialog(
         context,
         dateSetListener,
@@ -65,8 +66,6 @@ fun CrearSubastaScreen(
         calendar.get(Calendar.DAY_OF_MONTH)
     )
 
-    // --- FIN DE LA CORRECCIÓN ---
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -74,6 +73,7 @@ fun CrearSubastaScreen(
     ) {
         Text("Crear Nueva Subasta", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(bottom = 16.dp))
 
+        // Campo de texto para el título.
         OutlinedTextField(
             value = titulo,
             onValueChange = { titulo = it },
@@ -83,6 +83,7 @@ fun CrearSubastaScreen(
                 .padding(bottom = 8.dp)
         )
 
+        // Campo de texto para la descripción.
         OutlinedTextField(
             value = descripcion,
             onValueChange = { descripcion = it },
@@ -92,6 +93,7 @@ fun CrearSubastaScreen(
                 .padding(bottom = 8.dp)
         )
 
+        // Campo de texto para el precio inicial (solo números).
         OutlinedTextField(
             value = precioInicialText,
             onValueChange = { newValue ->
@@ -107,15 +109,17 @@ fun CrearSubastaScreen(
         )
 
         Spacer(modifier = Modifier.height(16.dp))
+
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
+            // Botón para seleccionar imagen.
             Button(onClick = { imagePickerLauncher.launch("image/*") }) {
                 Text("Seleccionar Imagen")
             }
-            // Previsualización de la imagen seleccionada
+            // Previsualización de la imagen seleccionada.
             imagenUri?.let {
                 Image(
                     painter = rememberAsyncImagePainter(it),
@@ -126,6 +130,7 @@ fun CrearSubastaScreen(
         }
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Campo de texto para la fecha de fin (solo lectura, abre el selector).
         OutlinedTextField(
             value = selectedDate?.let { SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(it) } ?: "",
             onValueChange = { /* No permitir edición manual */ },
@@ -136,8 +141,7 @@ fun CrearSubastaScreen(
                 .padding(bottom = 16.dp),
             trailingIcon = {
                 IconButton(onClick = {
-                    println("DEBUG: Clic en el icono de calendario. Mostrando DatePicker.")
-                    datePickerDialog.show()
+                    datePickerDialog.show() // Muestra el selector de fecha.
                 }) {
                     Icon(imageVector = Icons.Default.DateRange, contentDescription = "Seleccionar Fecha")
                 }
@@ -146,6 +150,7 @@ fun CrearSubastaScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Habilita el botón "Crear" si todos los campos requeridos están llenos.
         val isButtonEnabled = titulo.isNotBlank() &&
                 descripcion.isNotBlank() &&
                 precioInicialText.toDoubleOrNull() != null &&
@@ -155,27 +160,28 @@ fun CrearSubastaScreen(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceAround
         ) {
+            // Botón para cancelar.
             Button(
                 onClick = onCancelar,
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
             ) {
                 Text("Cancelar")
             }
+            // Botón para crear la subasta.
             Button(
                 onClick = {
                     val precio = precioInicialText.toDoubleOrNull()
                     if (isButtonEnabled && selectedDate != null && precio != null) {
-                        // Pasamos la URI de la imagen, no una URL de texto
                         onCrear(
                             titulo,
                             descripcion,
                             precio,
                             selectedDate!!,
-                            imagenUri // Pasamos la Uri directamente
+                            imagenUri // Pasa la URI de la imagen.
                         )
                     }
                 },
-                enabled = isButtonEnabled
+                enabled = isButtonEnabled // Estado de habilitación del botón.
             ) {
                 Text("Crear")
             }

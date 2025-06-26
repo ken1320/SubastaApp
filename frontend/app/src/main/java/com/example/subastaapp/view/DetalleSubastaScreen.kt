@@ -30,34 +30,41 @@ import com.example.subastaapp.viewmodel.SubastaViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 import androidx.compose.ui.draw.clip
-import com.example.subastaapp.model.RetrofitClient // <-- ¡IMPORTADO CORRECTAMENTE!
+import com.example.subastaapp.model.RetrofitClient // Importación del cliente Retrofit para la URL base.
 
+/**
+ * Pantalla de detalles de una subasta específica.
+ * Muestra información, puestos, formulario de oferta y acciones (finalizar/eliminar).
+ *
+ * @param navController Controlador de navegación.
+ * @param viewModel ViewModel para acceder a datos y lógica de subastas.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DetalleSubastaScreen(
     navController: NavController,
     viewModel: SubastaViewModel
 ) {
-    val subasta by viewModel.subastaSeleccionada.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val error by viewModel.error.collectAsState()
+    val subasta by viewModel.subastaSeleccionada.collectAsState() // Subasta seleccionada.
+    val isLoading by viewModel.isLoading.collectAsState() // Estado de carga.
+    val error by viewModel.error.collectAsState() // Mensaje de error.
 
-    var pujadorId by remember { mutableStateOf("") }
-    var montoOferta by remember { mutableStateOf("") }
-    var selectedPuesto by remember { mutableStateOf<Int?>(null) }
+    var pujadorId by remember { mutableStateOf("") } // ID del pujador.
+    var montoOferta by remember { mutableStateOf("") } // Monto de la oferta.
+    var selectedPuesto by remember { mutableStateOf<Int?>(null) } // Puesto seleccionado para ofertar.
 
-    val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+    val dateFormatter = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault()) // Formato de fecha.
 
-    var uiValidationMessage by remember { mutableStateOf<String?>(null) }
+    var uiValidationMessage by remember { mutableStateOf<String?>(null) } // Mensaje de validación de UI.
 
-    // Mostrar un CircularProgressIndicator si está cargando
+    // Muestra indicador de progreso si está cargando.
     if (isLoading) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             CircularProgressIndicator()
         }
     }
 
-    // Mostrar error general del ViewModel
+    // Muestra errores del ViewModel como Snackbar.
     error?.let { errorMessage ->
         val snackbarHostState = remember { SnackbarHostState() }
         LaunchedEffect(errorMessage) {
@@ -67,7 +74,7 @@ fun DetalleSubastaScreen(
         SnackbarHost(hostState = snackbarHostState)
     }
 
-    // Mostrar mensaje de validación de UI
+    // Muestra mensajes de validación de UI como Snackbar.
     uiValidationMessage?.let { localMessage ->
         val snackbarHostState = remember { SnackbarHostState() }
         LaunchedEffect(localMessage) {
@@ -77,6 +84,7 @@ fun DetalleSubastaScreen(
         SnackbarHost(hostState = snackbarHostState)
     }
 
+    // Contenido de la pantalla si hay una subasta seleccionada.
     subasta?.let { currentSubasta ->
         Scaffold(
             topBar = {
@@ -91,17 +99,17 @@ fun DetalleSubastaScreen(
             }
         ) { paddingValues ->
             LazyVerticalGrid(
-                columns = GridCells.Fixed(10), // Esta definición se aplicará a los 'items' que no son de 'item' único
+                columns = GridCells.Fixed(10), // Define una cuadrícula de 10 columnas.
                 modifier = Modifier
                     .fillMaxSize()
                     .padding(paddingValues)
                     .padding(horizontal = 12.dp, vertical = 8.dp),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
                 horizontalArrangement = Arrangement.spacedBy(2.dp),
-                state = rememberLazyGridState() // Añadir un estado si necesitas controlar el scroll
+                state = rememberLazyGridState()
             ) {
-                // Nombre de la Subasta
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                // Título de la subasta.
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = currentSubasta.titulo,
                         style = MaterialTheme.typography.headlineMedium,
@@ -111,14 +119,12 @@ fun DetalleSubastaScreen(
                     )
                 }
 
-                // Imagen de la Subasta
+                // Imagen de la subasta (si existe).
                 if (!currentSubasta.imagenUrl.isNullOrEmpty()) {
-                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
-                        // CONSTRUYE LA URL COMPLETA AQUÍ, usando la constante BASE_URL
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         val fullImageUrl = "${RetrofitClient.BASE_URL}${currentSubasta.imagenUrl}"
-
                         Image(
-                            painter = rememberAsyncImagePainter(fullImageUrl), // <-- Se usa la URL COMPLETA
+                            painter = rememberAsyncImagePainter(fullImageUrl),
                             contentDescription = "Imagen de la subasta",
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -130,8 +136,8 @@ fun DetalleSubastaScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
                 }
 
-                // Oferta Mínima (Precio Inicial de la Subasta)
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                // Precio inicial de la subasta.
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Oferta Mínima: $${String.format(Locale.getDefault(), "%.2f", currentSubasta.precioInicial)}",
                         style = MaterialTheme.typography.titleMedium,
@@ -140,15 +146,15 @@ fun DetalleSubastaScreen(
                     )
                 }
 
-                // Fechas de la subasta
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                // Fechas de inicio y fin.
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Inicio: ${dateFormatter.format(currentSubasta.fechaInicio)}",
                         style = MaterialTheme.typography.bodySmall,
                         fontSize = 12.sp
                     )
                 }
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Fin: ${dateFormatter.format(currentSubasta.fechaFin)}",
                         style = MaterialTheme.typography.bodySmall,
@@ -157,8 +163,8 @@ fun DetalleSubastaScreen(
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
 
-                // Estado de la subasta
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                // Estado de la subasta con color.
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Estado: ${currentSubasta.estado.replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.ROOT) else it.toString() }}",
                         style = MaterialTheme.typography.titleMedium,
@@ -172,8 +178,8 @@ fun DetalleSubastaScreen(
                     )
                 }
 
-                // --- Matriz Visual de Puestos (10x10 Grid) ---
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                // Título de la sección de puestos.
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Text(
                         text = "Puestos (1-100):",
                         style = MaterialTheme.typography.titleMedium,
@@ -182,16 +188,16 @@ fun DetalleSubastaScreen(
                     )
                 }
 
-                // Aquí van los items de la cuadrícula de puestos (estos sí respetarán GridCells.Fixed(10))
+                // Cuadrícula de puestos.
                 items(currentSubasta.puestos) { puesto ->
-                    val isOccupied = puesto.ocupadoPor != null
-                    val isSelected = selectedPuesto == puesto.numero
+                    val isOccupied = puesto.ocupadoPor != null // Si el puesto está ocupado.
+                    val isSelected = selectedPuesto == puesto.numero // Si el puesto está seleccionado.
 
                     Surface(
                         modifier = Modifier
-                            .aspectRatio(1f)
+                            .aspectRatio(1f) // Mantiene proporción 1:1.
                             .clickable(enabled = !isOccupied && currentSubasta.estado == "activa") {
-                                selectedPuesto = if (isSelected) null else puesto.numero
+                                selectedPuesto = if (isSelected) null else puesto.numero // Alterna selección.
                             }
                             .border(
                                 width = 1.dp,
@@ -238,13 +244,13 @@ fun DetalleSubastaScreen(
                 }
                 item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
 
-                // --- Formulario para ocupar puesto ---
+                // Formulario para ocupar puesto (visible si la subasta está activa).
                 if (currentSubasta.estado == "activa") {
-                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         OutlinedTextField(
                             value = pujadorId,
                             onValueChange = { pujadorId = it },
-                            label = { Text("ID pujador", fontSize = 14.sp) }, // También puedes limpiar el label
+                            label = { Text("ID pujador", fontSize = 14.sp) },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(max = 56.dp),
@@ -254,7 +260,7 @@ fun DetalleSubastaScreen(
                     }
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(6.dp)) }
 
-                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         OutlinedTextField(
                             value = montoOferta,
                             onValueChange = { newValue ->
@@ -274,17 +280,15 @@ fun DetalleSubastaScreen(
                     }
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
 
-                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Button(
                             onClick =  {
-                                // Accedemos a currentSubasta aquí dentro, ya que estamos en el scope del 'let'
                                 val subastaIdActual = currentSubasta.id
                                 val puesto = selectedPuesto
                                 val monto = montoOferta.toDoubleOrNull()
 
                                 if (puesto != null && monto != null && pujadorId.isNotBlank()) {
                                     if (monto > currentSubasta.precioInicial) {
-                                        // Usamos la variable local segura que no puede ser nula
                                         viewModel.ocuparPuesto(subastaIdActual, puesto, monto, pujadorId) {
                                             pujadorId = ""
                                             montoOferta = ""
@@ -309,12 +313,12 @@ fun DetalleSubastaScreen(
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
                 }
 
-                // --- Resultados de la Subasta (si finalizada) ---
+                // Resultados de la subasta (visible si está finalizada).
                 if (currentSubasta.estado == "finalizada") {
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
                     item(span = { GridItemSpan(maxLineSpan) }) { Divider() }
                     item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
-                    item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                    item(span = { GridItemSpan(maxLineSpan) }) {
                         Text(
                             text = "Resultados Finales:",
                             style = MaterialTheme.typography.titleLarge,
@@ -325,7 +329,7 @@ fun DetalleSubastaScreen(
                     }
 
                     if (currentSubasta.puestoGanador != null && currentSubasta.pujaGanadora != null) {
-                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "Puesto Ganador: ${currentSubasta.puestoGanador}",
                                 style = MaterialTheme.typography.titleMedium,
@@ -333,7 +337,7 @@ fun DetalleSubastaScreen(
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
-                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "Puja Ganadora: $${String.format(Locale.getDefault(), "%.2f", currentSubasta.pujaGanadora)}",
                                 style = MaterialTheme.typography.titleMedium,
@@ -351,7 +355,7 @@ fun DetalleSubastaScreen(
                                     fontWeight = FontWeight.SemiBold
                                 )
                             }
-                        } ?: item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        } ?: item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "Ganador: No especificado",
                                 style = MaterialTheme.typography.titleMedium,
@@ -359,7 +363,7 @@ fun DetalleSubastaScreen(
                             )
                         }
                     } else {
-                        item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                        item(span = { GridItemSpan(maxLineSpan) }) {
                             Text(
                                 text = "No hubo pujas válidas.",
                                 style = MaterialTheme.typography.bodyMedium,
@@ -369,9 +373,9 @@ fun DetalleSubastaScreen(
                     }
                 }
 
-                // --- Botones de Acción (Finalizar, Eliminar) ---
+                // Botones de acción (Finalizar, Eliminar).
                 item(span = { GridItemSpan(maxLineSpan) }) { Spacer(modifier = Modifier.height(12.dp)) }
-                item(span = { GridItemSpan(maxLineSpan) }) { // Ocupa toda la fila
+                item(span = { GridItemSpan(maxLineSpan) }) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceAround,

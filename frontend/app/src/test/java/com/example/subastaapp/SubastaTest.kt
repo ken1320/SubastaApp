@@ -1,15 +1,22 @@
 package com.example.subastaapp
 
 import com.example.subastaapp.model.Subasta
-import com.example.subastaapp.model.Puesto // Asegúrate de importar Puesto si Subasta lo usa
+import com.example.subastaapp.model.Puesto
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull // ¡Necesario para verificar valores nulos!
+import org.junit.Assert.assertNull
 import org.junit.Test
 import java.util.Date
 
+/**
+ * Clase de pruebas unitarias para la clase de datos [Subasta].
+ */
 class SubastaTest {
 
+    /**
+     * Prueba que la clase [Subasta] puede ser instanciada correctamente
+     * con un valor no nulo para [pujaGanadora].
+     */
     @Test
     fun `Subasta data class puede ser instanciada con valores correctos y pujaGanadora no nula`() {
         val id = "subasta123"
@@ -17,20 +24,16 @@ class SubastaTest {
         val descripcion = "Una pieza única para coleccionistas."
         val precioInicial = 100.0
         val precioActual = 120.50
-        val fechaInicio = Date(System.currentTimeMillis() - 3600000) // Hace 1 hora
-        val fechaFin = Date(System.currentTimeMillis() + 86400000) // En 24 horas
+        val fechaInicio = Date(System.currentTimeMillis() - 3600000)
+        val fechaFin = Date(System.currentTimeMillis() + 86400000)
         val estado = "activa"
         val imagenUrl = "http://example.com/imagen.jpg"
-
-        val puestos = listOf<Puesto>() // Lista vacía de Puesto para simplificar
-
+        val puestos = listOf<Puesto>()
         val puestoGanador: Int? = null
-
-        // ¡CORRECCIÓN CLAVE! Definimos pujaGanadora como un Double no nulo para esta prueba.
-        val pujaGanadoraConValor: Double = 150.0
-
+        val pujaGanadoraConValor: Double = 150.0 // Valor no nulo para la puja ganadora.
         val ganadorId: String? = null
 
+        // Instancia la clase Subasta.
         val subasta = Subasta(
             id = id,
             titulo = titulo,
@@ -43,11 +46,13 @@ class SubastaTest {
             imagenUrl = imagenUrl,
             puestos = puestos,
             puestoGanador = puestoGanador,
-            pujaGanadora = pujaGanadoraConValor, // Pasamos el valor no nulo
+            pujaGanadora = pujaGanadoraConValor,
             ganadorId = ganadorId
         )
 
+        // Verifica que la instancia no es nula.
         assertNotNull(subasta)
+        // Verifica que los valores instanciados son correctos.
         assertEquals(id, subasta.id)
         assertEquals(titulo, subasta.titulo)
         assertEquals(descripcion, subasta.descripcion)
@@ -59,13 +64,15 @@ class SubastaTest {
         assertEquals(imagenUrl, subasta.imagenUrl)
         assertEquals(puestos, subasta.puestos)
         assertEquals(puestoGanador, subasta.puestoGanador)
-
-        // ¡CORRECCIÓN CLAVE! Usamos '!!' para decirle al compilador que estamos seguros de que
-        // subasta.pujaGanadora no es nulo en este punto, permitiendo la comparación.
+        // Verifica que pujaGanadora tiene el valor esperado y no es nulo.
         assertEquals(pujaGanadoraConValor, subasta.pujaGanadora!!, 0.001)
         assertEquals(ganadorId, subasta.ganadorId)
     }
 
+    /**
+     * Prueba que la clase [Subasta] puede ser instanciada correctamente
+     * con un valor nulo para [pujaGanadora].
+     */
     @Test
     fun `Subasta data class puede ser instanciada con pujaGanadora nula`() {
         val id = "subasta124"
@@ -79,9 +86,10 @@ class SubastaTest {
         val imagenUrl: String? = null
         val puestos = listOf<Puesto>()
         val puestoGanador: Int? = null
-        val pujaGanadora: Double? = null // Definimos explícitamente como nulo para esta prueba
+        val pujaGanadora: Double? = null // Valor nulo para la puja ganadora.
         val ganadorId: String? = null
 
+        // Instancia la clase Subasta con pujaGanadora nula.
         val subasta = Subasta(
             id = id,
             titulo = titulo,
@@ -94,12 +102,13 @@ class SubastaTest {
             imagenUrl = imagenUrl,
             puestos = puestos,
             puestoGanador = puestoGanador,
-            pujaGanadora = pujaGanadora, // Pasamos el valor nulo
+            pujaGanadora = pujaGanadora,
             ganadorId = ganadorId
         )
 
+        // Verifica que la instancia no es nula.
         assertNotNull(subasta)
-        assertNull(subasta.pujaGanadora) // ¡VERIFICAMOS QUE ES NULO!
-        // También puedes añadir otras aserciones para las demás propiedades si lo deseas
+        // Verifica que pujaGanadora es nulo.
+        assertNull(subasta.pujaGanadora)
     }
 }

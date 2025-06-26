@@ -11,6 +11,14 @@ import com.example.subastaapp.model.Subasta
 import java.text.SimpleDateFormat
 import java.util.Locale
 
+/**
+ * Pantalla que muestra una lista de subastas.
+ * Permite buscar subastas y navegar a sus detalles o crear nuevas.
+ *
+ * @param subastas Lista de subastas a mostrar.
+ * @param onCrearSubasta Callback para crear una nueva subasta.
+ * @param onVerDetalles Callback para ver los detalles de una subasta.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ListaSubastasScreen(
@@ -18,12 +26,12 @@ fun ListaSubastasScreen(
     onCrearSubasta: () -> Unit,
     onVerDetalles: (Subasta) -> Unit
 ) {
-    var textoBusqueda by remember { mutableStateOf("") }
-    val subastasFiltradas = subastas.filter {
+    var textoBusqueda by remember { mutableStateOf("") } // Texto de búsqueda para filtrar subastas.
+    val subastasFiltradas = subastas.filter { // Lista de subastas filtradas por título.
         it.titulo.contains(textoBusqueda, ignoreCase = true)
     }
 
-    val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()) // Formato de fecha.
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -34,11 +42,12 @@ fun ListaSubastasScreen(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically
         ) {
             Text("Listado de Subastas", style = MaterialTheme.typography.titleLarge)
-            Button(onClick = onCrearSubasta) { Text("Nueva Subasta") }
+            Button(onClick = onCrearSubasta) { Text("Nueva Subasta") } // Botón para crear nueva subasta.
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Campo de texto para buscar subastas por título.
         OutlinedTextField(
             value = textoBusqueda,
             onValueChange = { textoBusqueda = it },
@@ -49,9 +58,11 @@ fun ListaSubastasScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
+        // Muestra mensaje si no hay subastas filtradas.
         if (subastasFiltradas.isEmpty()) {
             Text("No hay subastas para mostrar.", modifier = Modifier.padding(16.dp))
         } else {
+            // Lista de subastas.
             LazyColumn {
                 items(subastasFiltradas) { subasta ->
                     Card(
@@ -59,7 +70,7 @@ fun ListaSubastasScreen(
                             .fillMaxWidth()
                             .padding(vertical = 4.dp),
                         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
-                        onClick = { onVerDetalles(subasta) }
+                        onClick = { onVerDetalles(subasta) } // Al hacer clic, ver detalles.
                     ) {
                         Row(
                             modifier = Modifier
@@ -72,29 +83,23 @@ fun ListaSubastasScreen(
                                 Text(subasta.titulo, style = MaterialTheme.typography.titleMedium)
                                 Text("Fecha de inicio: ${dateFormatter.format(subasta.fechaInicio)}")
 
-                                // --- LÓGICA DE VISUALIZACIÓN DE GANADOR/OFERTA ACTUAL ---
+                                // Lógica para mostrar ganador o oferta actual.
                                 if (subasta.estado == "finalizada" && subasta.puestoGanador != null && subasta.pujaGanadora != null) {
-                                    // Buscar el puesto ganador para obtener el nombre del pujador si está populado
                                     val ganadorPuesto = subasta.puestos.find { it.numero == subasta.puestoGanador }
                                     val nombreGanador = ganadorPuesto?.ocupadoPor
-
 
                                     if (nombreGanador != null) {
                                         Text("👑 Ganador: $nombreGanador (\$${String.format(Locale.getDefault(), "%.2f", subasta.pujaGanadora)})",
                                             color = MaterialTheme.colorScheme.primary)
                                     } else {
-                                        // Si el nombre no está populado, mostrar el ID del ganador
                                         Text("👑 Ganador ID: ${subasta.ganadorId} (\$${String.format(Locale.getDefault(), "%.2f", subasta.pujaGanadora)})",
                                             color = MaterialTheme.colorScheme.primary)
                                     }
                                 } else if (subasta.estado == "activa" && subasta.precioActual > subasta.precioInicial) {
-                                    // Si la subasta está activa y hay una oferta actual mayor que la inicial
                                     Text("Oferta actual: \$${String.format(Locale.getDefault(), "%.2f", subasta.precioActual)}")
                                 } else {
-                                    // Si no hay ofertas o la subasta está en otro estado no finalizado/activo con puja
                                     Text("Sin ofertas aún / ${subasta.estado}")
                                 }
-                                // --- FIN LÓGICA ---
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Button(onClick = { onVerDetalles(subasta) }) {

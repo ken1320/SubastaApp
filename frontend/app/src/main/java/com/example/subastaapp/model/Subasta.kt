@@ -3,50 +3,61 @@ package com.example.subastaapp.model
 import com.google.gson.annotations.SerializedName
 import java.util.Date
 
-// Nuevo data class para representar cada puesto
+/**
+ * Representa un puesto dentro de una subasta.
+ */
 data class Puesto(
-    val numero: Int,
-    val ocupadoPor: String? = null,
-    val montoPuja: Double,
-    val fechaOcupacion: Date? = null
+    val numero: Int, // Número del puesto.
+    val ocupadoPor: String? = null, // ID del ocupante.
+    val montoPuja: Double, // Monto de la puja.
+    val fechaOcupacion: Date? = null // Fecha de ocupación.
 )
 
-// Nuevo data class para un usuario simple para populación
+/**
+ * Representa un usuario simplificado.
+ */
 data class UsuarioSimple(
-    @SerializedName("_id") // Le dice a GSON que mapee el campo "_id" del JSON aquí
-    val id: String,        // Usamos 'id' por consistencia en Kotlin
-    val nombre: String
+    @SerializedName("_id")
+    val id: String, // ID del usuario.
+    val nombre: String // Nombre del usuario.
 )
 
+/**
+ * Representa una subasta con todos sus detalles.
+ */
 data class Subasta(
-    @SerializedName("_id") // <--- AÑADE ESTA LÍNEA
-    val id: String, // Ahora GSON sabe que _id en JSON corresponde a este campo 'id'
-    val titulo: String,
-    val descripcion: String,
-    val precioInicial: Double,
-    val precioActual: Double,
-    val fechaInicio: Date,
-    val fechaFin: Date,
-    val estado: String,
-    val imagenUrl: String? = null,
-    val puestos: List<Puesto>,
-    val puestoGanador: Int? = null,
-    val pujaGanadora: Double? = null,
-    val ganadorId: String? = null
+    @SerializedName("_id")
+    val id: String, // ID de la subasta.
+    val titulo: String, // Título de la subasta.
+    val descripcion: String, // Descripción.
+    val precioInicial: Double, // Precio de inicio.
+    val precioActual: Double, // Precio actual.
+    val fechaInicio: Date, // Fecha de inicio.
+    val fechaFin: Date, // Fecha de fin.
+    val estado: String, // Estado.
+    val imagenUrl: String? = null, // URL de la imagen.
+    val puestos: List<Puesto>, // Lista de puestos.
+    val puestoGanador: Int? = null, // Puesto ganador.
+    val pujaGanadora: Double? = null, // Puja ganadora.
+    val ganadorId: String? = null // ID del ganador.
 )
 
-// SubastaCreationRequest se mantiene igual, ya que la inicialización de 'puestos' la hace el backend
+/**
+ * Datos para crear una nueva subasta.
+ */
 data class SubastaCreationRequest(
-    val titulo: String,
-    val descripcion: String,
-    val precioInicial: Double,
-    val fechaFin: Date,
-    val imagenUrl: String? = null
+    val titulo: String, // Título.
+    val descripcion: String, // Descripción.
+    val precioInicial: Double, // Precio inicial.
+    val fechaFin: Date, // Fecha de fin.
+    val imagenUrl: String? = null // URL de la imagen (opcional).
 )
 
-// PujaRequest cambia para ser una 'OcuparPuestoRequest'
+/**
+ * Solicitud para ocupar un puesto en una subasta.
+ */
 data class OcuparPuestoRequest(
-    val puestoNumero: Int,
-    val montoPuja: Double,
-    val pujadorId: String // Aquí le puedes cambiar el nombre si quieres: 'comprador'
+    val puestoNumero: Int, // Número de puesto.
+    val montoPuja: Double, // Monto de la puja.
+    val pujadorId: String // ID del pujador.
 )

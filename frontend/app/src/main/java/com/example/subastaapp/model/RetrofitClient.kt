@@ -5,21 +5,26 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
 
+/**
+ * Configuración y proveedor de Retrofit para la API.
+ */
 object RetrofitClient {
 
-    // ¡NUEVO! Define la URL base como una constante accesible públicamente
-    const val BASE_URL = "http://10.0.2.2:3000/" // La URL base de tu servidor
+    /** URL base del servidor de la API. */
+    const val BASE_URL = "http://10.0.2.2:3000/"
 
+    /** Cliente HTTP con tiempos de espera extendidos. */
     private val okHttpClient = OkHttpClient.Builder()
-        .connectTimeout(30, TimeUnit.SECONDS) // Aumentar timeout de conexión
-        .readTimeout(30, TimeUnit.SECONDS)    // Aumentar timeout de lectura
-        .writeTimeout(30, TimeUnit.SECONDS)   // Aumentar timeout de escritura
+        .connectTimeout(30, TimeUnit.SECONDS)
+        .readTimeout(30, TimeUnit.SECONDS)
+        .writeTimeout(30, TimeUnit.SECONDS)
         .build()
 
+    /** Instancia lazy de la API de Subastas. */
     val api: SubastaApi by lazy {
         Retrofit.Builder()
-            .baseUrl(BASE_URL) // Usa la constante definida arriba
-            .client(okHttpClient) // ¡AÑADIR EL CLIENTE PERSONALIZADO!
+            .baseUrl(BASE_URL)
+            .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(SubastaApi::class.java)
